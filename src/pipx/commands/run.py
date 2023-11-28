@@ -4,6 +4,9 @@ import logging
 import time
 import urllib.parse
 import urllib.request
+
+import os
+
 from pathlib import Path
 from shutil import which
 from typing import List, NoReturn, Optional
@@ -179,6 +182,8 @@ def run(
     package
     """
 
+    check_version(PIPX_LOCAL_VENVS / "{app}/VERSION_CHECK_FILENAME")
+    
     # For any package, we need to just use the name
     try:
         package_name = Requirement(app).name
@@ -203,6 +208,33 @@ def run(
             verbose,
             use_cache,
         )
+
+'''
+Constants:
+VERSION_CHECK_FILENAME = "pipx_version_check"
+VERSION_CHECK_EXPIRATION_THRESHOLD_HOURS = 24
+'''
+
+def check_version(version_check_file: Path) -> NoReturn:
+    
+    if _is_version_check_expired(version_check_file):
+        # delete old file, create new version check file, and perform version check
+        try:
+            os.remove(version_check_file)
+        except
+            
+    else: 
+
+def _is_version_check_expired(version_check_file: str) -> bool:
+    if version_check_file.exists():
+        created_time_sec = version_check_file.stat().st_ctime
+        current_time_sec = time.mktime(datetime.datetime.now().timetuple())
+        age = current_time_sec - created_time_sec
+        expiration_threshold_sec = 60 * 60 * VERSION_CHECK_EXPIRATION_THRESHOLD_HOURS
+        return age > expiration_threshold_sec
+    else:
+       return TRUE
+
 
 
 def _download_and_run(
