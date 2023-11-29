@@ -6,6 +6,8 @@ import urllib.parse
 import urllib.request
 
 import os
+from bs4 import BeautifulSoup
+import requests
 
 from pathlib import Path
 from shutil import which
@@ -214,15 +216,10 @@ Constants:
 VERSION_CHECK_FILENAME = "pipx_version_check"
 VERSION_CHECK_EXPIRATION_THRESHOLD_HOURS = 24
 '''
-
-def check_version(version_check_file: Path) -> NoReturn:
-    
-    if _is_version_check_expired(version_check_file):
-        # delete old file, create new version check file, and perform version check
-        try:
-            os.remove(version_check_file)
-        except
-            
+def check_version(version_check_file: Path) -> NoReturn:    
+    if _is_version_check_expired(version_check_file):        
+        open(PIPX_LOCAL_VENVS / "{app}/VERSION_CHECK_FILENAME") # creates new file named "pipx_version_check" if one doesn't exist; overwrites old one if one did exist
+        _get_package_version(app)
     else: 
 
 def _is_version_check_expired(version_check_file: str) -> bool:
@@ -235,7 +232,17 @@ def _is_version_check_expired(version_check_file: str) -> bool:
     else:
        return TRUE
 
-
+def _get_package_version(package_name):
+    url = f"https://pypi.org/simple/{package_name}/"
+    response = requests.get(url)
+    
+    if response.status_code == 200:
+        soup = BeautifulSoup(response.text, 'html.parser')
+        # Extract version information based on the HTML structure
+        versions = [tag.text.strip() for tag in soup.find_all('a')]
+        return versions
+    else:
+        return None
 
 def _download_and_run(
     venv_dir: Path,
