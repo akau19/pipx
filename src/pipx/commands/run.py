@@ -184,7 +184,7 @@ def run(
     package
     """
 
-    check_version(PIPX_LOCAL_VENVS / "{app}/VERSION_CHECK_FILENAME")
+    check_version(app)
     
     # For any package, we need to just use the name
     try:
@@ -216,33 +216,70 @@ Constants:
 VERSION_CHECK_FILENAME = "pipx_version_check"
 VERSION_CHECK_EXPIRATION_THRESHOLD_HOURS = 24
 '''
-def check_version(version_check_file: Path) -> NoReturn:    
-    if _is_version_check_expired(version_check_file):        
-        open(PIPX_LOCAL_VENVS / "{app}/VERSION_CHECK_FILENAME") # creates new file named "pipx_version_check" if one doesn't exist; overwrites old one if one did exist
-        _get_package_version(app)
-    else: 
+def check_version(
+    app: str,
+) -> NoReturn:   
 
-def _is_version_check_expired(version_check_file: str) -> bool:
-    if version_check_file.exists():
+    package_venv = PIPX_LOCAL_VENVS / "{app}"
+    #version_check_filepath = PIPX_LOCAL_VENVS / "{app}/pipx_version_check"
+    
+    if _is_version_check_expired(package_venv/"pipx_version_check"):        
+        open(package_venv/"pipx_version_check") # creates new file named "pipx_version_check" if one doesn't exist; overwrites old one if one did exist
+        latest_version = _get_latest_version(app)
+
+        venv = Venv(package_venv)
+        #package_metadata = venv.package_metadata[{app}].package_version
+        current_version = venv.package_metadata[{app}].package_version
+        
+        if latest_version > current_version:
+            upgrade(
+                venv_dir,
+                pip_args,
+                verbose,
+                include_injected=TRUE, #args.include_injected,
+                force=FALSE, #args.force,
+            )
+        
+def _is_version_check_expired(version_check_filepath: Path) -> bool:
+    if version_check_file.exists():     # check if the file exists
         created_time_sec = version_check_file.stat().st_ctime
         current_time_sec = time.mktime(datetime.datetime.now().timetuple())
         age = current_time_sec - created_time_sec
-        expiration_threshold_sec = 60 * 60 * VERSION_CHECK_EXPIRATION_THRESHOLD_HOURS
+        expiration_threshold_sec = 60 * 60 * 24     # 24 hours
         return age > expiration_threshold_sec
     else:
-       return TRUE
+       return TRUE     # returns true that the file is expired if the file doesn't exist
 
-def _get_package_version(package_name):
-    url = f"https://pypi.org/simple/{package_name}/"
-    response = requests.get(url)
-    
-    if response.status_code == 200:
-        soup = BeautifulSoup(response.text, 'html.parser')
-        # Extract version information based on the HTML structure
-        versions = [tag.text.strip() for tag in soup.find_all('a')]
-        return versions
-    else:
+def _get_latest_version(package_name):
+    pypi_url = f'https://pypi.org/project/{package_name}/'
+
+    try:
+        response = requests.get(pypi_url)
+        response.raise_for_status()
+
+        html_content = response.text
+
+    except requests.RequestException as e:
+        print(f"Error during request: {e}")
         return None
+
+    if html_content:
+        # Parse the HTML content using BeautifulSoup
+        soup = BeautifulSoup(html_content, 'html.parser')
+    
+        # Extract the latest version from the HTML
+        version_element = soup.select_one('.package-header__name')
+    
+        if version_element:
+            # Extract the version from the h1 element text
+            version_text = version_element.text.strip()
+            # Split the text and get the last part, assuming version is at the end
+            latest_version = version_text.split()[-1]
+            print(f"The latest version of {package_name} is: {latest_version}")
+        else:
+            print(f"Unable to find version information on the PyPI page for {package_name}.")
+    else:
+        print(f"Unable to retrieve HTML content for {package_name}.")
 
 def _download_and_run(
     venv_dir: Path,
