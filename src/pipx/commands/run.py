@@ -222,7 +222,7 @@ def check_version(
     package_venv = (constants.PIPX_LOCAL_VENVS) / "{app}"
     #version_check_filepath = PIPX_LOCAL_VENVS / "{app}/pipx_version_check"
     
-    if (package_venv / "pipx_version_check").exists() || _is_version_check_expired(package_venv):        
+    if (package_venv / "pipx_version_check").exists() or _is_version_check_expired(package_venv):        
         # creates new file named "pipx_version_check" if one doesn't exist; overwrites old one if one did exist
         open(package_venv/"pipx_version_check")
         latest_version = _get_latest_version(app)
