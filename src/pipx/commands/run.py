@@ -184,11 +184,10 @@ def run(
     package
     """
 
-    check_version(app)
-    
     # For any package, we need to just use the name
     try:
         package_name = Requirement(app).name
+        check_version(app)
     except InvalidRequirement:
         # Raw URLs to scripts are supported, too, so continue if
         # we can't parse this as a package
@@ -211,66 +210,61 @@ def run(
             use_cache,
         )
 
-'''
-Constants:
-VERSION_CHECK_FILENAME = "pipx_version_check"
-VERSION_CHECK_EXPIRATION_THRESHOLD_HOURS = 24
-'''
 def check_version(app: str):   
-    package_venv = PIPX_LOCAL_VENVS / "{app}"
-    
-    if (package_venv / "pipx_version_check").exists() or _is_version_check_expired(package_venv):        
-        # creates new file named "pipx_version_check" if one doesn't exist; overwrites old one if one did exist
-        with open(package_venv/"pipx_version_check", "w"):
-            pass
-        
+    venv_dir = PIPX_LOCAL_VENVS / app
+
+    # If the "pipx_version_check" file does not exist 
+    # or is already expired, check for a new package version.
+    if not (venv_dir / "pipx_version_check").exists() or _is_version_check_expired(venv_dir):        
+
+        # If the "pipx_version_check" file does not exist, we create a new file.
+        # If it already exists, we update the timestamp.
+        (venv_dir/"pipx_version_check").touch()
+        current_version = Venv(venv_dir).package_metadata[app].package_version
         latest_version = _get_latest_version(app)
 
-        venv = Venv(package_venv)
-        current_version = venv.package_metadata[app].package_version
+        # Upgrade the package if the latest version is found,
+        # and the current version is out-of-date.
+        if latest_version:
+            if version.parse(latest_version) > version.parse(current_version):
+               subprocess.run(["pipx", "upgrade", app])
         
-        if version.parse(latest_version) > version.parse(current_version):
-           subprocess.run(["pipx", "upgrade", app])
-        
-def _is_version_check_expired(package_venv: Path) -> bool:
-    version_check_file = package_venv / "pipx_version_check"
+def _is_version_check_expired(venv_dir: Path) -> bool:
+    version_check_file = venv_dir / "pipx_version_check"
     created_time_sec = version_check_file.stat().st_ctime
     current_time_sec = time.mktime(datetime.datetime.now().timetuple())
     age = current_time_sec - created_time_sec
     expiration_threshold_sec = 60 * 60 * 24     # 24 hours
     return age > expiration_threshold_sec
 
-def _get_latest_version(package_name):
-    pypi_url = f'https://pypi.org/project/{package_name}/'
+def _get_latest_version(app) -> str:
+    pypi_url = f'https://pypi.org/project/{app}/'
 
     try:
         response = requests.get(pypi_url)
         response.raise_for_status()
-
         html_content = response.text
+        if html_content:
+            # Parse the HTML content using BeautifulSoup
+            soup = BeautifulSoup(html_content, 'html.parser')
+        
+            # Extract the latest version from the HTML
+            version_element = soup.select_one('.package-header__name')
+        
+            if version_element:
+                # Extract the version from the h1 element text
+                version_text = version_element.text.strip()
+                # Split the text and get the last part, assuming version is at the end
+                latest_version = version_text.split()[-1]
+                return latest_version
+            else:
+                print(f"Unable to find version information on the PyPI page for {app}.")
+                return None
 
     except requests.RequestException as e:
         print(f"Error during request: {e}")
         return None
-
-    if html_content:
-        # Parse the HTML content using BeautifulSoup
-        soup = BeautifulSoup(html_content, 'html.parser')
-    
-        # Extract the latest version from the HTML
-        version_element = soup.select_one('.package-header__name')
-    
-        if version_element:
-            # Extract the version from the h1 element text
-            version_text = version_element.text.strip()
-            # Split the text and get the last part, assuming version is at the end
-            latest_version = version_text.split()[-1]
-            print(f"The latest version of {package_name} is: {latest_version}")
-        else:
-            print(f"Unable to find version information on the PyPI page for {package_name}.")
-    else:
-        print(f"Unable to retrieve HTML content for {package_name}.")
-
+        
 def _download_and_run(
     venv_dir: Path,
     package_or_url: str,
