@@ -1,8 +1,8 @@
 import datetime
 import hashlib
 import logging
-import os
 import requests
+import subprocess
 import time
 import urllib.parse
 import urllib.request
@@ -13,10 +13,11 @@ from shutil import which
 from typing import List, NoReturn, Optional
 
 from packaging.requirements import InvalidRequirement, Requirement
+from packaging import version
 
 from pipx import constants
 from pipx.commands.common import package_name_from_spec
-from pipx.constants import TEMP_VENV_EXPIRATION_THRESHOLD_DAYS, WINDOWS
+from pipx.constants import TEMP_VENV_EXPIRATION_THRESHOLD_DAYS, WINDOWS, PIPX_LOCAL_VENVS
 from pipx.emojis import hazard
 from pipx.util import (
     PipxError,
@@ -215,24 +216,21 @@ Constants:
 VERSION_CHECK_FILENAME = "pipx_version_check"
 VERSION_CHECK_EXPIRATION_THRESHOLD_HOURS = 24
 '''
-def check_version(
-    app: str,
-) -> NoReturn:   
-
-    package_venv = (constants.PIPX_LOCAL_VENVS) / "{app}"
-    #version_check_filepath = PIPX_LOCAL_VENVS / "{app}/pipx_version_check"
+def check_version(app: str):   
+    package_venv = PIPX_LOCAL_VENVS / "{app}"
     
     if (package_venv / "pipx_version_check").exists() or _is_version_check_expired(package_venv):        
         # creates new file named "pipx_version_check" if one doesn't exist; overwrites old one if one did exist
-        open(package_venv/"pipx_version_check")
+        with open(package_venv/"pipx_version_check", "w") as file:
+            pass
+        
         latest_version = _get_latest_version(app)
 
         venv = Venv(package_venv)
-        #package_metadata = venv.package_metadata[{app}].package_version
         current_version = venv.package_metadata[app].package_version
         
-        if latest_version > current_version:
-            os.system("pipx upgrade {app}")
+        if version.parse(latest_version) > version.parse(current_version):
+           subprocess.run("pipx", "upgrade", app)
         
 def _is_version_check_expired(package_venv: Path) -> bool:
     version_check_file = package_venv / "pipx_version_check"
