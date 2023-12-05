@@ -221,7 +221,7 @@ def check_version(app: str):
     
     if (package_venv / "pipx_version_check").exists() or _is_version_check_expired(package_venv):        
         # creates new file named "pipx_version_check" if one doesn't exist; overwrites old one if one did exist
-        with open(package_venv/"pipx_version_check", "w") as file:
+        with open(package_venv/"pipx_version_check", "w"):
             pass
         
         latest_version = _get_latest_version(app)
@@ -230,7 +230,7 @@ def check_version(app: str):
         current_version = venv.package_metadata[app].package_version
         
         if version.parse(latest_version) > version.parse(current_version):
-           subprocess.run("pipx", "upgrade", app)
+           subprocess.run(["pipx", "upgrade", app])
         
 def _is_version_check_expired(package_venv: Path) -> bool:
     version_check_file = package_venv / "pipx_version_check"
