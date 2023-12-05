@@ -259,11 +259,14 @@ def _get_latest_version(app) -> str:
                 return latest_version
             else:
                 print(f"Unable to find version information on the PyPI page for {app}.")
-                return None
+                return ""
+        else:
+            print(f"Unable to retrieve HTML content for {app}.")
+            return ""
 
     except requests.RequestException as e:
         print(f"Error during request: {e}")
-        return None
+        return ""
         
 def _download_and_run(
     venv_dir: Path,
