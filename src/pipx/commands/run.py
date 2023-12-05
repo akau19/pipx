@@ -1,14 +1,13 @@
 import datetime
 import hashlib
 import logging
+import os
+import requests
 import time
 import urllib.parse
 import urllib.request
 
-import os
 from bs4 import BeautifulSoup
-import requests
-
 from pathlib import Path
 from shutil import which
 from typing import List, NoReturn, Optional
@@ -220,11 +219,12 @@ def check_version(
     app: str,
 ) -> NoReturn:   
 
-    package_venv = PIPX_LOCAL_VENVS / "{app}"
+    package_venv = (constants.PIPX_LOCAL_VENVS) / "{app}"
     #version_check_filepath = PIPX_LOCAL_VENVS / "{app}/pipx_version_check"
     
-    if _is_version_check_expired(package_venv/"pipx_version_check"):        
-        open(package_venv/"pipx_version_check") # creates new file named "pipx_version_check" if one doesn't exist; overwrites old one if one did exist
+    if _is_version_check_expired(package_venv):        
+        # creates new file named "pipx_version_check" if one doesn't exist; overwrites old one if one did exist
+        open(package_venv/"pipx_version_check")
         latest_version = _get_latest_version(app)
 
         venv = Venv(package_venv)
@@ -232,23 +232,25 @@ def check_version(
         current_version = venv.package_metadata[{app}].package_version
         
         if latest_version > current_version:
-            upgrade(
+            os.system("pipx upgrade {app}")
+            '''commands.upgrade(
                 venv_dir,
                 pip_args,
                 verbose,
                 include_injected=TRUE, #args.include_injected,
                 force=FALSE, #args.force,
-            )
+            )'''
         
-def _is_version_check_expired(version_check_filepath: Path) -> bool:
+def _is_version_check_expired(package_venv: Path) -> bool:
+    version_check_file = package_venv / "pipx_version_check"
     if version_check_file.exists():     # check if the file exists
         created_time_sec = version_check_file.stat().st_ctime
         current_time_sec = time.mktime(datetime.datetime.now().timetuple())
         age = current_time_sec - created_time_sec
         expiration_threshold_sec = 60 * 60 * 24     # 24 hours
         return age > expiration_threshold_sec
-    else:
-       return TRUE     # returns true that the file is expired if the file doesn't exist
+    
+    return 1     # returns true that the file is expired if the file doesn't exist
 
 def _get_latest_version(package_name):
     pypi_url = f'https://pypi.org/project/{package_name}/'
